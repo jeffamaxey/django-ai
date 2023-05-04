@@ -174,12 +174,10 @@ class StatisticalModel(models.Model):
         # and the len of the columns shouls be checked
         lengths = [len(data[col]) for col in data]
         h = lengths[0]
-        if any([h != t for t in lengths[1:]]):
+        if any(h != t for t in lengths[1:]):
             raise ValidationError(
                 {"ref_column": _("Columns lengths does not match.")})
-        # Construct the list
-        data_list = np.stack([data[col] for col in data], axis=-1)
-        return(data_list)
+        return np.stack([data[col] for col in data], axis=-1)
 
     def get_results(self):
         raise NotImplementedError("A Technique should implement this method")
@@ -202,16 +200,15 @@ class StatisticalModel(models.Model):
         """
         Parses and runs the thresholds actions.
         """
-        if self.counter_threshold:
-            if self.counter_threshold <= self.counter:
-                self.counter = 0
-                actions = self.threshold_actions.split(" ")
-                for action in actions:
-                    if action == ":recalculate":
-                        self.perform_inference(recalculate=True)
-                return(True)
-        else:
+        if not self.counter_threshold:
             return(False)
+        if self.counter_threshold <= self.counter:
+            self.counter = 0
+            actions = self.threshold_actions.split(" ")
+            for action in actions:
+                if action == ":recalculate":
+                    self.perform_inference(recalculate=True)
+            return(True)
 
     def rotate_metadata(self):
         """
@@ -231,9 +228,13 @@ class StatisticalModel(models.Model):
                 rs = self._parse_results_storage()
             except Exception as e:
                 msg = e.args[0]
-                raise ValidationError({'results_storage': _(
-                    'Invalid format or storage engine: {}'.format(msg)
-                )})
+                raise ValidationError(
+                    {
+                        'results_storage': _(
+                            f'Invalid format or storage engine: {msg}'
+                        )
+                    }
+                )
             if rs["storage"] == "dmf":
                 try:
                     model_class = ContentType.objects.get(
@@ -242,23 +243,23 @@ class StatisticalModel(models.Model):
                     ).model_class()
                 except Exception as e:
                     msg = e.args[0]
-                    raise ValidationError({'results_storage': _(
-                        'Error getting the model: {}'.format(msg)
-                    )})
+                    raise ValidationError(
+                        {'results_storage': _(f'Error getting the model: {msg}')}
+                    )
                 try:
                     getattr(model_class, rs["attrs"]["field"])
                 except Exception as e:
                     msg = e.args[0]
-                    raise ValidationError({'results_storage': _(
-                        'Error accessing the field: {}'.format(msg)
-                    )})
+                    raise ValidationError(
+                        {'results_storage': _(f'Error accessing the field: {msg}')}
+                    )
         # Check threshold_actions keywords are valid
         if self.threshold_actions:
             for action in self.threshold_actions.split(" "):
                 if action not in self.ACTIONS_KEYWORDS:
-                    raise ValidationError({'threshold_actions': _(
-                        'Unrecognized action: {}'.format(action)
-                    )})
+                    raise ValidationError(
+                        {'threshold_actions': _(f'Unrecognized action: {action}')}
+                    )
 
     def save(self, *args, **kwargs):
         """
@@ -277,22 +278,19 @@ class StatisticalModel(models.Model):
     # -> Internal API
     def _parse_results_storage(self):
         storage, attrs = self.results_storage.split(":", 1)
-        if storage == "dmf":
-            app, model, field = attrs.split(".")
-            return(
-                {
-                    "storage": storage,
-                    "attrs": {
-                        "app": app,
-                        "model": model,
-                        "field": field
-                    }
+        if storage != "dmf":
+            raise ValueError(_(f'"{storage}" engine is not implemented.'))
+        app, model, field = attrs.split(".")
+        return(
+            {
+                "storage": storage,
+                "attrs": {
+                    "app": app,
+                    "model": model,
+                    "field": field
                 }
-            )
-        else:
-            raise ValueError(_(
-                '"{}" engine is not implemented.'.format(storage)
-            ))
+            }
+        )
 
     def _store_results(self, reset=False):
         results = self.get_results()
@@ -408,8 +406,7 @@ class SupervisedLearningTechnique(StatisticalModel):
                 app_label=app,
                 model=model.lower()
             ).model_class()
-            labels = model_class.objects.values_list(attribute, flat=True)
-            return(labels)
+            return model_class.objects.values_list(attribute, flat=True)
         else:
             return(None)
 
@@ -435,30 +432,34 @@ class SupervisedLearningTechnique(StatisticalModel):
 
     # -> Django Models API
     def clean(self):
-        if self.labels_column:
-            # Check the validity of the Labels Column
-            try:
-                app, model, attribute = self.labels_column.split(".")
-            except Exception:
-                raise ValidationError({'labels_column': _(
-                    'Invalid format'
-                )})
-            try:
-                model_class = ContentType.objects.get(
-                    app_label=app,
-                    model=model.lower()
-                ).model_class()
-            except Exception:
-                raise ValidationError({'labels_column': _(
-                    'The Reference Model must be a valid Django Model'
-                )})
-            try:
-                getattr(model_class, attribute)
-            except Exception:
-                raise ValidationError({'labels_column': _(
-                    'The column must be a valid attribute of '
-                    'the {} model'.format(model_class._meta.verbose_name)
-                )})
+        if not self.labels_column:
+            return
+        # Check the validity of the Labels Column
+        try:
+            app, model, attribute = self.labels_column.split(".")
+        except Exception:
+            raise ValidationError({'labels_column': _(
+                'Invalid format'
+            )})
+        try:
+            model_class = ContentType.objects.get(
+                app_label=app,
+                model=model.lower()
+            ).model_class()
+        except Exception:
+            raise ValidationError({'labels_column': _(
+                'The Reference Model must be a valid Django Model'
+            )})
+        try:
+            getattr(model_class, attribute)
+        except Exception:
+            raise ValidationError(
+                {
+                    'labels_column': _(
+                        f'The column must be a valid attribute of the {model_class._meta.verbose_name} model'
+                    )
+                }
+            )
 
 
 class UnsupervisedLearningTechnique(StatisticalModel):

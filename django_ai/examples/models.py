@@ -83,9 +83,7 @@ class UserInfo(models.Model):
         app_label = APP_LABEL
 
     def __str__(self):
-        return("{} - S: {}, A:{} - Group: {}".format(
-            self.id, self.get_sex_display(), self.age, self.cluster_1)
-        )
+        return f"{self.id} - S: {self.get_sex_display()}, A:{self.age} - Group: {self.cluster_1}"
 
 
 class CommentOfMySite(IsSpammable):
@@ -101,7 +99,7 @@ class CommentOfMySite(IsSpammable):
         app_label = APP_LABEL
 
     def __str__(self):
-        return("[U: {}] {}...".format(self.user_id, self.comment[:20]))
+        return f"[U: {self.user_id}] {self.comment[:20]}..."
 
 
 class SFPTEnron(SpamFilterPreTraining):

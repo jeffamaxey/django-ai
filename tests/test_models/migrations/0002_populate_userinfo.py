@@ -18,10 +18,7 @@ def populate_userinfos(apps, schema_editor):
     age = np.floor(np.random.normal(30, 2, size=(size,)))
     # Average 1 is a metric normally distributed around 10 with a std dev of 5
     avg1 = np.random.normal(10, 5, size=(size,))
-    # Create the objects in the Model
-    uis = []
-    for i in range(0, size):
-        uis.append(UserInfo(age=age[i], sex=sex[i], avg1=avg1[i]))
+    uis = [UserInfo(age=age[i], sex=sex[i], avg1=avg1[i]) for i in range(0, size)]
     UserInfo.objects.bulk_create(uis)
 
 

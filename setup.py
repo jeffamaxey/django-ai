@@ -14,10 +14,10 @@ def get_version(*file_paths):
     """Retrieves the version from django_ai/__init__.py"""
     filename = os.path.join(os.path.dirname(__file__), *file_paths)
     version_file = open(filename).read()
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
-    if version_match:
-        return version_match.group(1)
+    if version_match := re.search(
+        r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M
+    ):
+        return version_match[1]
     raise RuntimeError('Unable to find version string.')
 
 
@@ -37,7 +37,7 @@ if sys.argv[-1] == 'publish':
 
 if sys.argv[-1] == 'tag':
     print("Tagging the version on git:")
-    os.system("git tag -a %s -m 'version %s'" % (version, version))
+    os.system(f"git tag -a {version} -m 'version {version}'")
     os.system("git push --tags")
     sys.exit()
 

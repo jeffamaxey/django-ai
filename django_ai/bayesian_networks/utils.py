@@ -7,19 +7,12 @@ from importlib import import_module
 from django.conf import settings
 
 
-# Load all the modules
-if hasattr(settings, "DJANGO_AI_WHITELISTED_MODULES"):
-    allowed_modules = settings.DJANGO_AI_WHITELISTED_MODULES
-else:
-    # Default modules
-    allowed_modules = [
-        "numpy",
-        "bayespy.nodes"
-    ]
-# Import all the WL modules
-modules = {}
-for module in allowed_modules:
-    modules[module] = import_module(module)
+allowed_modules = (
+    settings.DJANGO_AI_WHITELISTED_MODULES
+    if hasattr(settings, "DJANGO_AI_WHITELISTED_MODULES")
+    else ["numpy", "bayespy.nodes"]
+)
+modules = {module: import_module(module) for module in allowed_modules}
 
 
 def eval_function(parsed_fun):
@@ -42,14 +35,10 @@ def eval_function(parsed_fun):
         raise ValueError("Module / Namespace not allowed, whitelist it first")
     try:
         method = getattr(mod, functor)
-        if reference:
-            return(method)
-        else:
-            # No support for kwargs yet
-            return(method(*functor_args))
+        return method if reference else (method(*functor_args))
     except Exception as e:
         msg = e.args[0]
-        raise ValueError("Invalid function invocation:" + msg)
+        raise ValueError(f"Invalid function invocation:{msg}")
 
 
 def parse_node_args(args_string, flat=False):
@@ -71,7 +60,7 @@ def parse_node_args(args_string, flat=False):
                       pp.Optional(pp.oneOf("+ -")) +
                       pp.Optional(pp.Word(pp.nums))).setName("real")
     # Identifiers
-    identifier = pp.Word(pp.alphas + "_:", pp.alphanums + "_:")
+    identifier = pp.Word(f"{pp.alphas}_:", f"{pp.alphanums}_:")
     funStr = pp.Forward().setResultsName("fun")
     # Structures
     listStr = pp.Forward()
@@ -120,11 +109,10 @@ def parse_node_args(args_string, flat=False):
                     kw = item.asList()[0]
                     kw_val = item.asList()[1]
                     f_kwargs[kw] = kw_val
+            elif 'fun' in item:
+                f_args.append(eval_function(item))
             else:
-                if 'fun' in item:
-                    f_args.append(eval_function(item))
-                else:
-                    f_args.append(item.asList())
+                f_args.append(item.asList())
         else:
             # It is one of the "basic objects" and passed as an arg
             f_args.append(item)
@@ -142,5 +130,4 @@ def mahalanobis_distance(x, y, S):
     """
     S_inv = np.linalg.inv(S)
     dxy = np.array(x) - np.array(y)
-    dist = np.sqrt(np.dot(np.dot(dxy.T, S_inv), dxy))
-    return(dist)
+    return np.sqrt(np.dot(np.dot(dxy.T, S_inv), dxy))

@@ -243,24 +243,20 @@ class SVC(SupervisedLearningTechnique):
         return(classifier)
 
     def get_conf_dict(self):
-        conf_dict = {}
-        conf_dict['name'] = self.name
-        conf_dict['kernel'] = self.get_kernel_display()
+        conf_dict = {'name': self.name, 'kernel': self.get_kernel_display()}
         kernel_details = ""
         if self.kernel == "poly":
-            kernel_details += "Degree: {} ".format(
-                self.kernel_poly_degree)
-        if (self.kernel == "poly" or self.kernel == "sigmoid" or
-                self.kernel == "rbf"):
+            kernel_details += f"Degree: {self.kernel_poly_degree} "
+        if self.kernel in ["poly", "sigmoid", "rbf"]:
             kc = self.kernel_coefficient if self.kernel_coefficient else "Auto"
-            kernel_details += "Coef. (gamma): {} - ".format(kc)
-        if (self.kernel == "poly" or self.kernel == "sigmoid"):
+            kernel_details += f"Coef. (gamma): {kc} - "
+        if self.kernel in ["poly", "sigmoid"]:
             kit = self.kernel_independent_term \
-                if self.kernel_independent_term else "0"
-            kernel_details += "Indep. Term: {} - ".format(kit)
+                    if self.kernel_independent_term else "0"
+            kernel_details += f"Indep. Term: {kit} - "
         conf_dict['kernel_details'] = kernel_details
         conf_dict['penalty_parameter'] = self.penalty_parameter
-        conf_dict['str'] = "Kernel: {}{}, Penalty: {}".format(
-            self.get_kernel_display(), kernel_details, self.penalty_parameter
-        )
+        conf_dict[
+            'str'
+        ] = f"Kernel: {self.get_kernel_display()}{kernel_details}, Penalty: {self.penalty_parameter}"
         return(conf_dict)

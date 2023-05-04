@@ -28,11 +28,8 @@ def get_fieldsets_and_inlines(context):
             if inlines:
                 fieldsets_and_inlines.append(('i', inlines.pop(0)))
 
-    for fieldset in adminform:
-        fieldsets_and_inlines.append(('f', fieldset))
-    for inline in inlines:
-        fieldsets_and_inlines.append(('i', inline))
-
+    fieldsets_and_inlines.extend(('f', fieldset) for fieldset in adminform)
+    fieldsets_and_inlines.extend(('i', inline) for inline in inlines)
     return(fieldsets_and_inlines)
 
 

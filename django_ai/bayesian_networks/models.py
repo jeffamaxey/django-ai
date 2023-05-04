@@ -73,15 +73,14 @@ class BayesianNetwork(StatisticalModel):
 
     def save(self, *args, **kwargs):
         # Initialize metadata field if corresponds
-        if self.metadata == {}:
-            if self.network_type == self.BN_TYPE_CLUSTERING:
-                self.metadata["clusters_labels"] = {}
-                self.metadata["prev_clusters_labels"] = {}
-                self.metadata["clusters_means"] = {}
-                self.metadata["prev_clusters_means"] = {}
-                self.metadata["clusters_sizes"] = {}
-                self.metadata["prev_clusters_sizes"] = {}
-                self.metadata["columns"] = []
+        if self.metadata == {} and self.network_type == self.BN_TYPE_CLUSTERING:
+            self.metadata["clusters_labels"] = {}
+            self.metadata["prev_clusters_labels"] = {}
+            self.metadata["clusters_means"] = {}
+            self.metadata["prev_clusters_means"] = {}
+            self.metadata["clusters_sizes"] = {}
+            self.metadata["prev_clusters_sizes"] = {}
+            self.metadata["columns"] = []
         # Defaults the engine iterations if corresponds
         if not self.engine_iterations:
             self.engine_iterations = 1000
@@ -91,16 +90,15 @@ class BayesianNetwork(StatisticalModel):
         super(BayesianNetwork, self).save(*args, **kwargs)
 
     def parse_and_run_threshold_actions(self):
-        if self.counter_threshold:
-            if self.counter_threshold <= self.counter:
-                self.counter = 0
-                actions = self.threshold_actions.split(" ")
-                for action in actions:
-                    if action == ":recalculate":
-                        self.perform_inference(recalculate=True)
-                return(True)
-        else:
+        if not self.counter_threshold:
             return(False)
+        if self.counter_threshold <= self.counter:
+            self.counter = 0
+            actions = self.threshold_actions.split(" ")
+            for action in actions:
+                if action == ":recalculate":
+                    self.perform_inference(recalculate=True)
+            return(True)
 
     def get_graph(self):
         dot = Digraph(comment=self.name)
@@ -123,9 +121,8 @@ class BayesianNetwork(StatisticalModel):
         if self.image:
             self.image.delete()
         image_name = "{0}/{1}".format(
-            os.path.join("django_ai",
-                         "bayesian_networks"),
-            self.name + ".png")
+            os.path.join("django_ai", "bayesian_networks"), f"{self.name}.png"
+        )
         self.image.save(image_name,
                         self.get_raw_network_image())
 
@@ -163,7 +160,7 @@ class BayesianNetwork(StatisticalModel):
                        }
                       for n in nodes if not n.parents()}
         # Update with the root nodes
-        eos_struct.update(root_nodes)
+        eos_struct |= root_nodes
 
         # Child nodes are "intermediate" nodes and "final" ones ("leafs" in
         # trees). These are the ones that need the EOs Struct for recursion
@@ -171,11 +168,7 @@ class BayesianNetwork(StatisticalModel):
         for cn in child_nodes:
             eos_struct = BayesianNetwork.update_eos_struct(eos_struct, cn)
 
-        # Collect the EOs
-        nodes_eos = []
-        for node in eos_struct:
-            nodes_eos.append(eos_struct[node]["eo"])
-
+        nodes_eos = [eos_struct[node]["eo"] for node in eos_struct]
         # Initialize the BP's Inference Engine
         self.engine_object = bp.inference.VB(*nodes_eos)
 
@@ -202,11 +195,7 @@ class BayesianNetwork(StatisticalModel):
         if not self.engine_object or recalculate:
             # If iters is not set, first use e_i, then default to 1000
             if not iters:
-                if self.engine_iterations:
-                    iters = self.engine_iterations
-                else:
-                    # Default to 1000
-                    iters = 1000
+                iters = self.engine_iterations if self.engine_iterations else 1000
             # Run the inference 'e_m_i' times
             for i in range(self.engine_meta_iterations):
                 Q = self.get_engine_object(reconstruct=True)
@@ -224,7 +213,7 @@ class BayesianNetwork(StatisticalModel):
                 # Propagate results to the network
                 for node in self.nodes.all():
                     node.engine_inferred_object = \
-                        self.engine_object[node.name]
+                            self.engine_object[node.name]
                     node.engine_object_timestamp = timezone.now()
                     node.update_image()
                     node.save()
@@ -268,31 +257,30 @@ class BayesianNetwork(StatisticalModel):
               one Categorical Node for cluster assigments with prior Dirichlet
               probabilities
         """
-        if self.network_type == self.BN_TYPE_CLUSTERING:
-            if not self.is_inferred:
-                return(False)
-            # if not self._clusters_labels:
-            #     self.assign_clusters_labels()
-            eo = self.engine_object
-            prior_clusters_probs = self.nodes.get(
-                distribution=bp_consts.DIST_DIRICHLET).engine_inferred_object
-            clusters_means = self.nodes.get(
-                distribution=bp_consts.DIST_GAUSSIAN).engine_inferred_object
-            clusters_cov_matrices = self.nodes.get(
-                distribution=bp_consts.DIST_WISHART).engine_inferred_object
-            #
-            Z_new = bp.nodes.Categorical(prior_clusters_probs)
-            Z_new.initialize_from_random()
-            Y_new = bp.nodes.Mixture(Z_new, bp.nodes.Gaussian,
-                                     clusters_means, clusters_cov_matrices)
-            Y_new.observe(observation)
-            Q_0 = bp.inference.VB(Z_new, Y_new, *eo.model)
-            Q_0.update(Z_new)
-            cluster_label = self.metadata["clusters_labels"][
-                str(np.argmax(Z_new.get_moments()[0]))]
-            return(cluster_label)
-        else:
+        if self.network_type != self.BN_TYPE_CLUSTERING:
             return(False)
+        if not self.is_inferred:
+            return(False)
+        # if not self._clusters_labels:
+        #     self.assign_clusters_labels()
+        eo = self.engine_object
+        prior_clusters_probs = self.nodes.get(
+            distribution=bp_consts.DIST_DIRICHLET).engine_inferred_object
+        clusters_means = self.nodes.get(
+            distribution=bp_consts.DIST_GAUSSIAN).engine_inferred_object
+        clusters_cov_matrices = self.nodes.get(
+            distribution=bp_consts.DIST_WISHART).engine_inferred_object
+        #
+        Z_new = bp.nodes.Categorical(prior_clusters_probs)
+        Z_new.initialize_from_random()
+        Y_new = bp.nodes.Mixture(Z_new, bp.nodes.Gaussian,
+                                 clusters_means, clusters_cov_matrices)
+        Y_new.observe(observation)
+        Q_0 = bp.inference.VB(Z_new, Y_new, *eo.model)
+        Q_0.update(Z_new)
+        return self.metadata["clusters_labels"][
+            str(np.argmax(Z_new.get_moments()[0]))
+        ]
 
     def assign_clusters_labels(self, save=True):
         """
@@ -308,11 +296,11 @@ class BayesianNetwork(StatisticalModel):
         filtered_means = list(np.unique(clusters_means, axis=0))
         # Sort cluster means by norm
         filtered_means.sort(key=np.linalg.norm)
-        if not self.metadata["clusters_labels"] == {}:
+        if self.metadata["clusters_labels"] != {}:
             self.metadata["prev_clusters_labels"] = self.metadata[
                 "clusters_labels"]
             self.metadata["clusters_labels"] = {}
-        if not self.metadata["clusters_means"] == {}:
+        if self.metadata["clusters_means"] != {}:
             self.metadata["prev_clusters_means"] = self.metadata[
                 "clusters_means"]
             self.metadata["clusters_means"] = {}
@@ -341,7 +329,7 @@ class BayesianNetwork(StatisticalModel):
     def metadata_update_cluster_sizes(self, save=True):
         results = self.get_results()
         # Move cluster_sizes to prev_c_s if it already existed
-        if not self.metadata["clusters_sizes"] == {}:
+        if self.metadata["clusters_sizes"] != {}:
             self.metadata["prev_clusters_sizes"] = self.metadata[
                 "clusters_sizes"]
         sizes = dict(Counter(results))
@@ -359,18 +347,17 @@ class BayesianNetwork(StatisticalModel):
         Assumptions:
                 - The network as a topology of a Gaussian Mixture Model
         """
-        if self.network_type == self.BN_TYPE_CLUSTERING:
-            if not self.is_inferred:
-                return(False)
-            clusters_assig_eo = self.nodes.get(
-                distribution=bp_consts.DIST_CATEGORICAL).engine_inferred_object
-            assignations = []
-            for assig in clusters_assig_eo.get_moments()[0]:
-                label = self.metadata["clusters_labels"][str(np.argmax(assig))]
-                assignations.append(label)
-            return(assignations)
-        else:
+        if self.network_type != self.BN_TYPE_CLUSTERING:
             return(None)
+        if not self.is_inferred:
+            return(False)
+        clusters_assig_eo = self.nodes.get(
+            distribution=bp_consts.DIST_CATEGORICAL).engine_inferred_object
+        assignations = []
+        for assig in clusters_assig_eo.get_moments()[0]:
+            label = self.metadata["clusters_labels"][str(np.argmax(assig))]
+            assignations.append(label)
+        return(assignations)
 
     @staticmethod
     def update_eos_struct(eos_struct, node):
@@ -535,10 +522,6 @@ class BayesianNetworkNode(models.Model):
                 error_dict['distribution_params'] = _(
                     'A Stochastic Node must have a distribution'
                     'parameters')
-            # Raise if any
-            if error_dict:
-                raise ValidationError(error_dict)
-        # THIRD STEP: Check Validity on Deterministic Nodes
         else:
             if self.deterministic is None:
                 error_dict['deterministic'] = _(
@@ -547,31 +530,27 @@ class BayesianNetworkNode(models.Model):
                 error_dict['deterministic_params'] = _(
                     'A Deterministic Node must have deterministic'
                     'parameters')
-            # Raise if any
-            if error_dict:
-                raise ValidationError(error_dict)
-
+        # Raise if any
+        if error_dict:
+            raise ValidationError(error_dict)
         # FOURTH STEP: Check args parsing
         try:
             params = parse_node_args(self.get_params(), flat=True)
         except Exception as e:
             msg = e.args[0]
-            raise ValidationError({
-                self.get_params_type() + "_params": msg
-            })
+            raise ValidationError({f"{self.get_params_type()}_params": msg})
 
         # FINAL STEP: Check if the Engine Object (BayesPy) can be initialized
         # Check only if the Node hasn't other Nodes as params (otherwise the
         # networkd Edges should have been created already to resolve the names
         # to Nodes)
 
-        if not any([isinstance(p, str) for p in params]):
+        if not any(isinstance(p, str) for p in params):
             try:
                 self.get_engine_object(reconstruct=True, save=False)
             except Exception as e:
                 msg = e.args[0]
-                raise ValidationError({
-                    "distribution_params": "[BayesPy] " + msg})
+                raise ValidationError({"distribution_params": f"[BayesPy] {msg}"})
 
     # Use StatisticalModel's get_data() instead of defining one of its own
     get_data = StatisticalModel.get_data
@@ -653,17 +632,17 @@ class BayesianNetworkNode(models.Model):
                 self._data = self.get_data()
                 if 'plates' not in kwparams:
                     kwparams['plates'] = np.shape(self._data)
-            else:
-                if 'plates' in kwparams:
-                    # Process Custom Keywords in plates
-                    length = kwparams['plates'][0]
-                    if isinstance(length, str) and length.startswith(":dl"):
-                        node = self.network.nodes.get(name=length[4:])
-                        length = node.get_data().shape[0]
-                    if len(kwparams['plates']) == 2:
-                        kwparams['plates'] = (length, kwparams['plates'][1])
-                    else:
-                        kwparams['plates'] = (length, )
+            elif 'plates' in kwparams:
+                # Process Custom Keywords in plates
+                length = kwparams['plates'][0]
+                if isinstance(length, str) and length.startswith(":dl"):
+                    node = self.network.nodes.get(name=length[4:])
+                    length = node.get_data().shape[0]
+                kwparams['plates'] = (
+                    (length, kwparams['plates'][1])
+                    if len(kwparams['plates']) == 2
+                    else (length,)
+                )
             if ":noplates" in custom_keywords:
                 del(kwparams['plates'])
 
@@ -712,16 +691,18 @@ class BayesianNetworkNode(models.Model):
         return(True)
 
     def update_image(self):
-        if (not self.engine_inferred_object or
-                not self.node_type == self.NODE_TYPE_STOCHASTIC):
+        if (
+            not self.engine_inferred_object
+            or self.node_type != self.NODE_TYPE_STOCHASTIC
+        ):
             return False
         if self.image:
             self.image.delete()
 
         image_name = "{0}/{1}".format(
-            os.path.join("django_ai",
-                         "bayesian_networks"),
-            self.network.name + "_" + self.name + ".png")
+            os.path.join("django_ai", "bayesian_networks"),
+            f"{self.network.name}_{self.name}.png",
+        )
 
         save = False
         if self.distribution == bp_consts.DIST_GAUSSIAN_ARD:
@@ -731,14 +712,14 @@ class BayesianNetworkNode(models.Model):
             bp.plot.pdf(self.engine_inferred_object,
                         np.linspace(float(a), float(b), num=100),
                         name=self.name)
-            bp.plot.pyplot.savefig(settings.MEDIA_ROOT + '/' + image_name)
+            bp.plot.pyplot.savefig(f'{settings.MEDIA_ROOT}/{image_name}')
             bp.plot.pyplot.close()
             save = True
         elif self.distribution == bp_consts.DIST_MIXTURE:
             if self.data_columns.count() == 2:
                 bp.plot.gaussian_mixture_2d(
                     self.engine_inferred_object, scale=2)
-                bp.plot.pyplot.savefig(settings.MEDIA_ROOT + '/' + image_name)
+                bp.plot.pyplot.savefig(f'{settings.MEDIA_ROOT}/{image_name}')
                 bp.plot.pyplot.close()
                 save = True
 
@@ -747,7 +728,7 @@ class BayesianNetworkNode(models.Model):
             self.save()
 
     def __str__(self):
-        return(str(self.network) + " - " + self.name)
+        return f"{str(self.network)} - {self.name}"
 
     class Meta:
         unique_together = ["network", "name", ]

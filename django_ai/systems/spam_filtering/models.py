@@ -317,7 +317,7 @@ class SpamFilter(SupervisedLearningTechnique):
         super(SpamFilter, self).save(*args, **kwargs)
 
     def __str__(self):
-        return("[Spam Filter] {}".format(self.name))
+        return f"[Spam Filter] {self.name}"
 
     def clean(self):
         if self.classifier:
@@ -341,11 +341,13 @@ class SpamFilter(SupervisedLearningTechnique):
             try:
                 model_class.objects.get(name=object_name)
             except Exception:
-                raise ValidationError({'classifier': _(
-                    'Cannot get the object "{}" from the '
-                    '{} model'.format(
-                        object_name, model_class._meta.verbose_name)
-                )})
+                raise ValidationError(
+                    {
+                        'classifier': _(
+                            f'Cannot get the object "{object_name}" from the {model_class._meta.verbose_name} model'
+                        )
+                    }
+                )
         if self.pretraining:
             # Check the validity of the Pretraining field
             try:
@@ -413,7 +415,7 @@ class SpamFilter(SupervisedLearningTechnique):
         if self.pretraining:
             data += self.get_pretraining_data()
         if utf8_point_repr:
-            max_length = max([len(text) for text in data])
+            max_length = max(len(text) for text in data)
             data = [[ord(character) for character in text.ljust(max_length)]
                     for text in data]
         return(data)
@@ -444,13 +446,8 @@ class SpamFilter(SupervisedLearningTechnique):
         Retrieves / Initializes the Engine's Vectorizer and transforms the
         data making it available in the `self.engine_object_data` field.
         """
-        if self.engine_object_vectorizer is not None and not reconstruct:
-            return(self.engine_object_vectorizer)
-        else:
-            if self.bow_use_tf_idf:
-                BoW_Vectorizer = TfidfVectorizer
-            else:
-                BoW_Vectorizer = CountVectorizer
+        if self.engine_object_vectorizer is None or reconstruct:
+            BoW_Vectorizer = TfidfVectorizer if self.bow_use_tf_idf else CountVectorizer
             bow_vectorizer_args = {
                 'encoding': self.bow_enconding,
                 'decode_error': self.bow_decode_error,
@@ -481,17 +478,15 @@ class SpamFilter(SupervisedLearningTechnique):
             self.engine_object_vectorizer = bow_vectorizer
             if save:
                 self.save()
-            return(self.engine_object_vectorizer)
+        return(self.engine_object_vectorizer)
 
     def get_engine_object_data(self, reconstruct=False, save=True):
         """
         Retrieves / Reconstructs the BoW representation of the data.
         """
-        if self.engine_object_data is not None and not reconstruct:
-            return(self.engine_object_data)
-        else:
+        if self.engine_object_data is None or reconstruct:
             self.get_engine_object_vectorizer(reconstruct=True, save=save)
-            return(self.engine_object_data)
+        return(self.engine_object_data)
 
     def get_engine_object(self, reconstruct=False, save=True):
         if self.engine_object is not None and not reconstruct:
@@ -511,13 +506,11 @@ class SpamFilter(SupervisedLearningTechnique):
             # No need for running the inference 'engine_meta_iterations' times
             eo = self.get_engine_object(reconstruct=True)
             # -> Get the data
-            if self.bow_is_enabled:
-                data = self.get_engine_object_data(
-                    reconstruct=recalculate, save=save
-                )
-            else:
-                # Use the UTF-8 code point representation
-                data = self.get_data(utf8_point_repr=True)
+            data = (
+                self.get_engine_object_data(reconstruct=recalculate, save=save)
+                if self.bow_is_enabled
+                else self.get_data(utf8_point_repr=True)
+            )
             # -> Get the labels
             labels = self.get_labels()
             # -> Remove Nones if any
@@ -532,13 +525,13 @@ class SpamFilter(SupervisedLearningTechnique):
                                               update_metadata=True)
             # -> Update other metadata
             self.metadata["current_inference"]["bow_is_enabled"] = \
-                self.bow_is_enabled
+                    self.bow_is_enabled
             self.metadata["current_inference"]["input_dimensionality"] = \
-                np.shape(data)
+                    np.shape(data)
             self.metadata["current_inference"]["vectorizer_conf"] = \
-                self.get_vect_conf_dict()
+                    self.get_vect_conf_dict()
             self.metadata["current_inference"]["classifier_conf"] = \
-                self.get_classifier().get_conf_dict()
+                    self.get_classifier().get_conf_dict()
             # -> Set as inferred
             self.is_inferred = True
             if save:
@@ -553,11 +546,11 @@ class SpamFilter(SupervisedLearningTechnique):
         if self.is_inferred:
             if self.bow_is_enabled:
                 transformed_text = \
-                    self.get_engine_object_vectorizer().transform(texts)
+                        self.get_engine_object_vectorizer().transform(texts)
             else:
-                max_length = max([len(t) for t in self.get_data()])
+                max_length = max(len(t) for t in self.get_data())
                 transformed_text = \
-                    [[ord(character) for character in text.ljust(max_length)]
+                        [[ord(character) for character in text.ljust(max_length)]
                      for text in texts][:max_length]
             classifier = self.get_engine_object()
             return(classifier.predict(transformed_text))
@@ -591,10 +584,7 @@ class SpamFilter(SupervisedLearningTechnique):
         return(scores)
 
     def remove_nones_from_input(self, data, labels):
-        # -> Remove data with missing labels if any
-        none_indices = [i for i, label in enumerate(labels)
-                        if label is None]
-        if none_indices:
+        if none_indices := [i for i, label in enumerate(labels) if label is None]:
             if isinstance(data, csr_matrix):
                 mask = np.ones(data.shape[0], dtype=bool)
                 mask[none_indices] = False
@@ -618,11 +608,9 @@ class SpamFilter(SupervisedLearningTechnique):
                     vcstr += "(TF-IDF Transformation) "
                 vcstr += "Analyzer: "
                 vcstr += self.get_bow_analyzer_display()
-                vcstr += " ({}, {}) - ".format(self.bow_ngram_range_min,
-                                               self.bow_ngram_range_max)
+                vcstr += f" ({self.bow_ngram_range_min}, {self.bow_ngram_range_max}) - "
                 vcstr += "Min / Max DF: "
-                vcstr += "{} / {}".format(self.bow_min_df,
-                                          self.bow_max_df)
+                vcstr += f"{self.bow_min_df} / {self.bow_max_df}"
         else:
             vcstr += "UTF-8 Representation (Vectorizer not enabled)"
         return(vcstr)
@@ -631,15 +619,16 @@ class SpamFilter(SupervisedLearningTechnique):
         """
         Vectorizer summary configuration string
         """
-        vcdict = {}
-        vcdict['bow_is_enabled'] = self.bow_is_enabled
-        vcdict['bow_use_tf_idf'] = self.bow_use_tf_idf
-        vcdict['binary'] = self.bow_binary
-        vcdict['analyzer'] = self.get_bow_analyzer_display()
-        vcdict['ngram_range'] = "({}, {})".format(self.bow_ngram_range_min,
-                                                  self.bow_ngram_range_max)
-        vcdict['df_min_max'] = "{} / {}".format(self.bow_min_df,
-                                                self.bow_max_df)
+        vcdict = {
+            'bow_is_enabled': self.bow_is_enabled,
+            'bow_use_tf_idf': self.bow_use_tf_idf,
+            'binary': self.bow_binary,
+            'analyzer': self.get_bow_analyzer_display(),
+        }
+        vcdict[
+            'ngram_range'
+        ] = f"({self.bow_ngram_range_min}, {self.bow_ngram_range_max})"
+        vcdict['df_min_max'] = f"{self.bow_min_df} / {self.bow_max_df}"
         vcdict['str'] = self.get_vect_conf_str()
         return(vcdict)
 
@@ -747,4 +736,4 @@ class SpamFilterPreTraining(models.Model):
 
     def __str__(self):
         is_spam = "SPAM" if self.is_spam else "HAM"
-        return("[{}] {}...".format(is_spam, self.content[:20]))
+        return f"[{is_spam}] {self.content[:20]}..."

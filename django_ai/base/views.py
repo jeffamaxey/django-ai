@@ -61,16 +61,16 @@ class RunActionView(UserPassesTestMixin, RedirectView):
             else:
                 action_method = getattr(self, action['method'])
             action_method(**action['kwargs'])
-            messages.success(self.request,
-                             "SUCCESS AT {}".format(action['str']))
+            messages.success(self.request, f"SUCCESS AT {action['str']}")
         except Exception as e:
             msg = e.args[0]
             frm = inspect.trace()[-1]
             mod = inspect.getmodule(frm[0])
             modname = mod.__name__ if mod else frm[1]
-            messages.error(self.request,
-                           "ERROR WHILE {}: [{}] {}".format(
-                               action['str'], modname, str(msg)))
+            messages.error(
+                self.request,
+                f"ERROR WHILE {action['str']}: [{modname}] {str(msg)}",
+            )
 
     def get_redirect_url(self, *args, **kwargs):
         if kwargs['action'] not in self.ACTIONS:

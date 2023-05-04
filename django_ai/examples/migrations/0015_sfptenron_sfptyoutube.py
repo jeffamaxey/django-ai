@@ -27,8 +27,8 @@ def confirm(question):
     """
     https://gist.github.com/garrettdreyfus/8153571
     """
-    reply = str(input(' -> ' + question + ' (Y/n): ')).lower().strip()
-    if reply == 'y' or reply == '':
+    reply = str(input(f' -> {question} (Y/n): ')).lower().strip()
+    if reply in {'y', ''}:
         return True
     elif reply == 'n':
         return False
@@ -46,21 +46,22 @@ def download_and_process_pretrain_data_files(apps, schema_editor):
     random.seed(1234567)
 
     # -> Download datasets if not exist
-    if (not os.path.exists(ENRON_MAILS_FILE_NAME) or
-            not os.path.exists(YOUTUBE_COMMENTS_FILE_NAME)):
-        if confirm("Proceed to download pre-training datasets?"):
-            if not os.path.exists(ENRON_MAILS_FILE_NAME):
-                print("    Downloading Enron mails dataset...")
-                urllib.request.urlretrieve(
-                    ENRON_MAILS_FILE_URL,
-                    ENRON_MAILS_FILE_NAME
-                )
-            if not os.path.exists(YOUTUBE_COMMENTS_FILE_NAME):
-                print("     Downloading Youtube comments dataset...")
-                urllib.request.urlretrieve(
-                    YOUTUBE_COMMENTS_FILE_URL,
-                    YOUTUBE_COMMENTS_FILE_NAME
-                )
+    if (
+        not os.path.exists(ENRON_MAILS_FILE_NAME)
+        or not os.path.exists(YOUTUBE_COMMENTS_FILE_NAME)
+    ) and confirm("Proceed to download pre-training datasets?"):
+        if not os.path.exists(ENRON_MAILS_FILE_NAME):
+            print("    Downloading Enron mails dataset...")
+            urllib.request.urlretrieve(
+                ENRON_MAILS_FILE_URL,
+                ENRON_MAILS_FILE_NAME
+            )
+        if not os.path.exists(YOUTUBE_COMMENTS_FILE_NAME):
+            print("     Downloading Youtube comments dataset...")
+            urllib.request.urlretrieve(
+                YOUTUBE_COMMENTS_FILE_URL,
+                YOUTUBE_COMMENTS_FILE_NAME
+            )
     # -> Process the Enron mails file
     with tarfile.open(name=ENRON_MAILS_FILE_NAME, mode="r:gz") as tfile:
         for member in tfile.getmembers():

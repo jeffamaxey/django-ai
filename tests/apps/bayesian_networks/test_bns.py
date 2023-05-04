@@ -543,7 +543,7 @@ class TestBN(TestCase):
         results = self.bn3.get_results()
         # Test resullts are OK (omitting the rest for avoiding pasting a
         # list of size 200)
-        self.assertEqual(results[150:], ["B" for x in range(50)])
+        self.assertEqual(results[150:], ["B" for _ in range(50)])
         # Edge case
         self.assertFalse(self.bn1.get_results())
         # BN.store_results()
@@ -613,7 +613,7 @@ class TestBN(TestCase):
         for position, arg in enumerate(output["args"]):
             # For nested lists, don't know why but it keeps using the
             # NumPy array comparison despites of not being of its class
-            if isinstance(arg, np.ndarray) or isinstance(arg, list):
+            if isinstance(arg, (np.ndarray, list)):
                 comp = (expected_output["args"][position] ==
                         output["args"][position])
                 if not isinstance(comp, bool):
@@ -630,8 +630,7 @@ class TestBN(TestCase):
             del(output['args'][pt])
         # Test Keyword Args
         for kw in expected_output['kwargs'].keys():
-            if (isinstance(expected_output['kwargs'][kw], np.ndarray) or
-                    isinstance(expected_output['kwargs'][kw], list)):
+            if isinstance(expected_output['kwargs'][kw], (np.ndarray, list)):
                 comp = (expected_output['kwargs'][kw] == output["kwargs"][kw])
                 if not isinstance(comp, bool):
                     comp = all(comp)
@@ -665,7 +664,7 @@ class TestBN(TestCase):
         with self.settings(DJANGO_AI_WHITELISTED_MODULES=["numpy", ]):
             # Reimport the function with the new settings
             from django_ai.bayesian_networks.utils import \
-                parse_node_args as pnn
+                    parse_node_args as pnn
             with self.assertRaises(ValueError):
                 pnn("numpy.ones(k)")
 

@@ -11,8 +11,8 @@ class Migration(migrations.Migration):
         ('test_models', '0011_add_is_inferred_and_minor_tweaks'),
     ]
 
-    def populate_pretraining(apps, schema_editor):
-        SFTP = apps.get_model("test_models", "MySFPT")
+    def populate_pretraining(self, schema_editor):
+        SFTP = self.get_model("test_models", "MySFPT")
 
         SFTP.objects.bulk_create([
             SFTP(content="Buy Viagra Online", is_spam=True),
@@ -23,15 +23,14 @@ class Migration(migrations.Migration):
             SFTP(content="I agree with your comment", is_spam=False),
         ])
 
-    def unpopulate_pretraining(apps, schema_editor):
+    def unpopulate_pretraining(self, schema_editor):
         """
         Nothing to do here (as the table will be deleted)
         """
         pass
 
-    def populate_spammable_mode(apps, schema_editor):
-        SpammableModel = apps.get_model("test_models",
-                                        "SpammableModel")
+    def populate_spammable_mode(self, schema_editor):
+        SpammableModel = self.get_model("test_models", "SpammableModel")
 
         SpammableModel.objects.bulk_create([
             SpammableModel(comment="Hi! Great Article!", is_spam=False),
@@ -40,7 +39,7 @@ class Migration(migrations.Migration):
             SpammableModel(comment="Buy a Jiraffe Online!", is_spam=True),
         ])
 
-    def unpopulate_spammable_model(apps, schema_editor):
+    def unpopulate_spammable_model(self, schema_editor):
         """
         Nothing to do here (as the table will be deleted)
         """

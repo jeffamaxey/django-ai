@@ -12,7 +12,7 @@ def populate_avg_times(apps, schema_editor):
     # Use a fixed seed for generate content
     np.random.seed(123456)
     table_size = getattr(settings, "DJANGO_AI_EXAMPLES_USERINFO_SIZE", 200)
-    group_size = int(table_size / 4)  # Equal sizes for all groups
+    group_size = table_size // 4
     # Generate the clusters
     y0 = np.random.multivariate_normal([20, 20], [[2, 0], [0, 0.1]],
                                        size=group_size)

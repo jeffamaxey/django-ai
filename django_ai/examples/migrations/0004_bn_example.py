@@ -30,9 +30,8 @@ def generate_bn_image(bn):
     dot.format = "png"
     contentfile = ContentFile(dot.pipe())
     image_name = "{0}/{1}".format(
-        os.path.join("django_ai",
-                     "bayesian_networks"),
-        bn.name + ".png")
+        os.path.join("django_ai", "bayesian_networks"), f"{bn.name}.png"
+    )
     bn.image.save(image_name, contentfile)
     bn.save()
 

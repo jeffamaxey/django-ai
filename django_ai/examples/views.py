@@ -55,7 +55,7 @@ def a_page_of_type_X(request, page_type="A", user_id=random.randint(1, USERS)):
             )
         )
     current_page = page_type
-    avg_time_pages_X = "avg_time_pages_" + current_page.lower()
+    avg_time_pages_X = f"avg_time_pages_{current_page.lower()}"
     user_info = UserInfo.objects.get(id=user_id)
     users_ids = UserInfo.objects.all().values_list("id", flat=True)\
         .order_by('-id')[:200]  # Prevents the browser becoming unresponsive
@@ -129,26 +129,25 @@ def process_metrics(request, verbose=True):
     The CSRF exemption is because it is highly unlikely that an external site
     posts values to our localhost to mess with our AI :)
     """
-    if request.method == "POST":
-        data = json.loads(request.body.decode())
-        if verbose:
-            print(data, METRICS_PIPELINE)
-        for metric_name, metric in METRICS_PIPELINE.items():
-            metric(data)
-        # -> Increment the BN internal counter by 1
-        # No problem doing this, as it is outside of the user's "navigation"
-        # request cycle:
-        bn = BayesianNetwork.objects.get(name="Clustering (Example)")
-        bn.counter += 1
-        bn.save()
-        # You could also update BN internal counter "directly",
-        # without .save():
-        # BayesianNetwork.objects.filter(name="Clustering (Example)")\
-        #     .update(counter=F("counter") + 1)
-        # and / or schedule a model recalculation.
-        return(HttpResponse(status=204))
-    else:
+    if request.method != "POST":
         return(HttpResponse(status=400))
+    data = json.loads(request.body.decode())
+    if verbose:
+        print(data, METRICS_PIPELINE)
+    for metric_name, metric in METRICS_PIPELINE.items():
+        metric(data)
+    # -> Increment the BN internal counter by 1
+    # No problem doing this, as it is outside of the user's "navigation"
+    # request cycle:
+    bn = BayesianNetwork.objects.get(name="Clustering (Example)")
+    bn.counter += 1
+    bn.save()
+    # You could also update BN internal counter "directly",
+    # without .save():
+    # BayesianNetwork.objects.filter(name="Clustering (Example)")\
+    #     .update(counter=F("counter") + 1)
+    # and / or schedule a model recalculation.
+    return(HttpResponse(status=204))
 
 
 class MetricsMixin(object):

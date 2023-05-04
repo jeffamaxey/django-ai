@@ -175,7 +175,7 @@ class TestBase(TestCase):
         self.mystatmodel.reset_engine_object(save=True)
         self.assertTrue(self.mystatmodel.engine_object is None)
         self.assertTrue(self.mystatmodel.engine_object_timestamp is None)
-        self.assertTrue(self.mystatmodel.is_inferred is False)
+        self.assertTrue(not self.mystatmodel.is_inferred)
         self.assertTrue(self.mystatmodel.metadata == empty_metadata)
         # -> Test reset_inferece
         self.mystatmodel.engine_object = {"something": "to_pickle"}
@@ -184,7 +184,7 @@ class TestBase(TestCase):
         self.mystatmodel.reset_inference(save=True)
         self.assertTrue(self.mystatmodel.engine_object is None)
         self.assertTrue(self.mystatmodel.engine_object_timestamp is None)
-        self.assertTrue(self.mystatmodel.is_inferred is False)
+        self.assertTrue(not self.mystatmodel.is_inferred)
         self.assertTrue(self.mystatmodel.metadata == empty_metadata)
 
     def test_statistical_model_parse_and_run_threshold_actions(self):
@@ -345,8 +345,7 @@ class TestBase(TestCase):
         # Test incorrect inference
         self.mu.distribution_params = "xxx:bad-dp"
         self.mu.save()
-        referer = '/admin/bayesian_networks/bayesiannetwork/{}/change/'\
-            .format(self.bn_base.id)
+        referer = f'/admin/bayesian_networks/bayesiannetwork/{self.bn_base.id}/change/'
         url = reverse('run-action', kwargs={
             "action": "perform_inference", "content_type": "bayesiannetwork",
             "object_id": self.bn_base.id, }

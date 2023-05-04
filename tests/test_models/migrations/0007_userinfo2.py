@@ -18,11 +18,10 @@ def populate_userinfos2(apps, schema_editor):
     # Average Times spent on Pages B is a metric normally distributed around
     # 30 with a std dev of 5
     avg_time_pages_b = np.random.normal(30, 5, size=(size,))
-    # Create the objects in the Model
-    uis = []
-    for i in range(0, size):
-        uis.append(UserInfo2(avg_time_pages_b=avg_time_pages_b[i],
-                             avg2=avg2[i]))
+    uis = [
+        UserInfo2(avg_time_pages_b=avg_time_pages_b[i], avg2=avg2[i])
+        for i in range(0, size)
+    ]
     UserInfo2.objects.bulk_create(uis)
 
 
